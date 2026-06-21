@@ -1,0 +1,10 @@
+# Nix
+result
+result-*
+.direnv/
+
+# Editor
+.idea/
+.vscode/
+*.swp
+*.swo
