@@ -3,13 +3,21 @@
 , python3
 , fetchFromGitHub
 , makeWrapper
+  # Optional override — pass a pre-built env (e.g. an existing hermes-agent
+  # venv that already has hermes_cli, hermes_agent, dotenv, etc.) to make
+  # the chat/kanban/agent-integration panels work without a separate Python
+  # process. When null, builds a minimal env from `python3` with just the
+  # two direct deps from upstream's requirements.txt (pyyaml, cryptography).
+  # The override MUST be a venv-shaped derivation exposing /bin/python.
+, pythonEnv ? null
 }:
 
 let
-  pythonEnv = python3.withPackages (ps: with ps; [
+  defaultPythonEnv = python3.withPackages (ps: with ps; [
     pyyaml
     cryptography
   ]);
+  effectivePythonEnv = if pythonEnv != null then pythonEnv else defaultPythonEnv;
 in
 stdenvNoCC.mkDerivation rec {
   pname = "hermes-webui";
@@ -33,7 +41,7 @@ stdenvNoCC.mkDerivation rec {
     mkdir -p $out/share/hermes-webui $out/bin
     cp -r . $out/share/hermes-webui/
 
-    makeWrapper ${pythonEnv}/bin/python $out/bin/hermes-webui \
+    makeWrapper ${effectivePythonEnv}/bin/python $out/bin/hermes-webui \
       --add-flags "$out/share/hermes-webui/server.py" \
       --set PYTHONDONTWRITEBYTECODE 1 \
       --set PYTHONUNBUFFERED 1
@@ -42,7 +50,7 @@ stdenvNoCC.mkDerivation rec {
   '';
 
   passthru = {
-    inherit pythonEnv;
+    pythonEnv = effectivePythonEnv;
   };
 
   meta = with lib; {

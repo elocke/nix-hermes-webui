@@ -65,6 +65,34 @@ that runs `server.py` directly.
 - Repo: <https://github.com/nesquena/hermes-webui>
 - Open feature request for upstream NixOS flake support: [#2422](https://github.com/nesquena/hermes-webui/issues/2422)
 
+## Sharing a Python env with `hermes-agent`
+
+By default, the package builds a minimal `python3.withPackages` env with the two
+upstream runtime deps. The chat / kanban / spawn-agent panels also need
+`hermes_cli`, `hermes_agent`, `dotenv`, and their transitives — they normally
+live in a hermes-agent venv. To make those panels work, pass that venv via the
+`pythonEnv` callPackage arg:
+
+```nix
+# in your NixOS host module
+let
+  hermesVenv =
+    inputs.hermes-agent.packages.${pkgs.stdenv.hostPlatform.system}.default.passthru.hermesVenv;
+in
+{
+  services.hermes-webui = {
+    enable = true;
+    package = pkgs.hermes-webui.override { pythonEnv = hermesVenv; };
+    # ...host/port/stateDir/agentDir/extraEnv
+  };
+}
+```
+
+`hermes-agent`'s `passthru.hermesVenv` is the uv2nix-resolved venv with every
+transitive Python dep. Reusing it (instead of layering pyyaml + cryptography
+into a parallel env) sidesteps Python-version skew and gets the agent-integration
+panels working with no additional dependency declarations on the webui side.
+
 ## Version pinning
 
 This flake pins upstream by tag (e.g. `v0.51.560`). Bumping is a coordinated change to `package.nix` (`version` + `hash`) followed by `git tag vX.Y.Z`.
