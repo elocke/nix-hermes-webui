@@ -79,6 +79,36 @@ in
       default = { };
       description = "Additional environment variables for the service unit.";
     };
+
+    extraReadWritePaths = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [ ];
+      example = lib.literalExpression ''[ "/var/lib/hermes" ]'';
+      description = ''
+        Additional paths appended to systemd's ReadWritePaths. Useful when
+        hermes-webui spawns hermes-agent subprocesses (chat / kanban /
+        spawn-agent panels do `import run_agent`), and those write outside
+        the default stateDir — for example to /var/lib/hermes/.hermes/logs,
+        /var/lib/hermes/.hermes/sessions, or /var/lib/hermes/workspace.
+        Under ProtectSystem=strict, those writes hit EROFS without the
+        whitelist. Typical co-located deployment:
+
+          services.hermes-webui = {
+            useHermesUser = true;
+            extraReadWritePaths = [ "/var/lib/hermes" ];
+          };
+      '';
+    };
+
+    extraReadOnlyPaths = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [ ];
+      example = lib.literalExpression ''[ "/srv/extra-skills" ]'';
+      description = ''
+        Additional paths appended to systemd's ReadOnlyPaths. The agent
+        directory (`agentDir`) is already added automatically.
+      '';
+    };
   };
 
   config = lib.mkIf cfg.enable {
@@ -131,8 +161,10 @@ in
         # explicit ReadWritePaths is still useful.
         NoNewPrivileges = true;
         ProtectSystem = "strict";
-        ReadWritePaths = [ (toString cfg.stateDir) ];
-        ReadOnlyPaths = lib.optional (cfg.agentDir != null) (toString cfg.agentDir);
+        ReadWritePaths = [ (toString cfg.stateDir) ] ++ cfg.extraReadWritePaths;
+        ReadOnlyPaths =
+          (lib.optional (cfg.agentDir != null) (toString cfg.agentDir))
+          ++ cfg.extraReadOnlyPaths;
         ProtectHome = false;
       };
     };

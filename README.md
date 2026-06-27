@@ -59,6 +59,8 @@ that runs `server.py` directly.
 | `stateDir` | `/var/lib/hermes-webui` | `HERMES_WEBUI_STATE_DIR` |
 | `agentDir` | `null` | `HERMES_WEBUI_AGENT_DIR` when set |
 | `extraEnv` | `{}` | |
+| `extraReadWritePaths` | `[]` | Appended to systemd's `ReadWritePaths`. Set to `[ "/var/lib/hermes" ]` in co-located deployments so spawned hermes-agent subprocesses (chat/kanban) can write logs/sessions/memories. |
+| `extraReadOnlyPaths` | `[]` | Appended to systemd's `ReadOnlyPaths`. `agentDir` is added automatically. |
 
 ## Upstream
 
@@ -83,6 +85,12 @@ in
   services.hermes-webui = {
     enable = true;
     package = pkgs.hermes-webui.override { pythonEnv = hermesVenv; };
+    useHermesUser = true;
+    # Spawned hermes-agent subprocesses (chat / kanban) write outside
+    # the webui state dir — to /var/lib/hermes/.hermes/{logs,sessions,…}
+    # and /var/lib/hermes/workspace. Match hermes-agent.service's sandbox
+    # so ProtectSystem=strict doesn't EROFS them.
+    extraReadWritePaths = [ "/var/lib/hermes" ];
     # ...host/port/stateDir/agentDir/extraEnv
   };
 }
